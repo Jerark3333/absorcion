@@ -70,15 +70,45 @@ class Hub:
             log.warning("instrument_info falló (%s); uso tick por defecto", e)
 
     async def _seed(self):
-        try:
-            await asyncio.sleep(1)
-            klines = await asyncio.to_thread(self.client.fetch_klines, self.cfg.history_limit)
-            # bootstrap: ticks REALES recientes de Bybit REST para reconstruir
-            # el footprint de la vela actual antes de que fluya el WebSocket.
-            recent = await asyncio.to_thread(self.client.recent_trades, 1000)
-            self.engine.seed_historical(klines, recent)
-        except Exception as e:
-            log.warning("seed falló: %s", e)
+        # Siembra del histórico con REINTENTOS: un fallo puntual de red a Bybit al
+        # arranque (típico en la nube) no debe dejar la app solo con la vela en
+        # formación y sin historial.
+        attempts = 3
+        for i in range(attempts):
+            try:
+                await asyncio.sleep(1 if i == 0 else 2 * i)
+                klines = await asyncio.to_thread(self.client.fetch_klines, self.cfg.history_limit)
+                # bootstrap: ticks REALES recientes de Bybit REST para reconstruir
+                # el footprint de la vela actual antes de que fluya el WebSocket.
+                recent = await asyncio.to_thread(self.client.recent_trades, 1000)
+                self.engine.seed_historical(klines, recent)
+                if self.engine.candles:
+                    log.info("seed OK: %s velas (%s %s)", len(self.engine.candles), self.cfg.symbol, self.cfg.interval)
+                    return
+                log.warning("seed: sin velas tras el intento %d/%d", i + 1, attempts)
+            except Exception as e:
+                log.warning("seed falló (intento %d/%d): %s", i + 1, attempts, e)
+        # último recurso: re-seed en 2º plano hasta conseguir histórico, para que
+        # el servidor no quede huérfano con solo la vela en formación.
+        if self.engine is not None and not self.engine.candles:
+            asyncio.get_running_loop().create_task(self._reseed_until_ready())
+
+    async def _reseed_until_ready(self):
+        """Si el seed inicial falló del todo, reintenta cada 15s (hasta ~5 min)
+        hasta tener velas; el frontend se auto-rellena con el próximo estado WS."""
+        for _ in range(20):
+            await asyncio.sleep(15)
+            if not self.engine or self.engine.candles:
+                return
+            try:
+                klines = await asyncio.to_thread(self.client.fetch_klines, self.cfg.history_limit)
+                recent = await asyncio.to_thread(self.client.recent_trades, 1000)
+                self.engine.seed_historical(klines, recent)
+                if self.engine.candles:
+                    log.info("re-seed OK: %s velas", len(self.engine.candles))
+                    return
+            except Exception as e:
+                log.warning("re-seed falló: %s", e)
 
     async def start(self):
         await self._build()

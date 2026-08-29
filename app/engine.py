@@ -545,6 +545,10 @@ class AbsorptionEngine:
         cfg = self.cfg
         for c in klines:
             t_key = int(c["ts"] // 1000)
+            # guarda anti-duplicado: las klines vienen cronológicas; si ya tenemos
+            # esta vela (p. ej. re-seed tras un fallo), no se vuelve a añadir.
+            if self.candles and self.candles[-1]["time"] >= t_key:
+                continue
             cache_key = f"{cfg.symbol}|{cfg.interval}|{t_key}"
             saved = FOOTPRINT_CACHE.get(cache_key)
             if saved is not None:
