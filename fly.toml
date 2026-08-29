@@ -2,6 +2,11 @@
 # El WebSocket con Bybit debe mantenerse activo 24/7 => máquina siempre encendida.
 app = "absorcion"
 
+# REGIÓN FUERA DE PAÍSES RESTRINGIDOS POR BYBIT (obligatorio): la API REST
+# (api.bybit.com) va detrás de CloudFront con bloqueo geográfico por país —
+# EEUU (dfw) y Países Bajos (ams) devuelven 403. Alemania (fra) está permitida.
+primary_region = "fra"
+
 [build]
   dockerfile = "Dockerfile"
 
