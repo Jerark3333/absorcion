@@ -28,8 +28,6 @@ import math
 import statistics
 import time
 import asyncio
-import json
-import os
 from collections import deque
 
 from .config import Config
@@ -38,11 +36,6 @@ from .memory import FOOTPRINT_CACHE, CACHE_MAX
 from .zones import ZoneManager
 
 log = logging.getLogger("engine")
-
-# Persistencia del historial de velas (footprint con clusters) a disco:
-# sobrevive a los reinicios del servidor (local y en Fly mientras la máquina vive).
-HISTORY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "footprint_history.json")
-HISTORY_MAX = 100   # últimas 100 velas consolidadas
 
 
 class AbsorptionEngine:
@@ -245,8 +238,6 @@ class AbsorptionEngine:
             FOOTPRINT_CACHE.pop(oldest, None)
         self._current_ticks = {}
         self._invalidate_caches()
-        # persistir el historial de velas (footprint) a disco
-        self._save_history()
         # [ABSORCIÓN DESACTIVADA] Capas 2-4 (vela, score, mitigación):
         # self._candle_metrics(summary)
         # self._score_tick_events(summary)
@@ -548,47 +539,12 @@ class AbsorptionEngine:
         candle["volume"] = round(sum(c["bid"] + c["ask"] for c in reconciled), 4)
         if self.candles and self.candles[-1]["time"] == candle["time"]:
             self.candles[-1] = candle
-        self._save_history()   # el archivo refleja los clusters oficiales
         self._emit({"type": "candle", "candle": candle})
-
-    # ---------------------------------------------------------------
-    # Persistencia del historial (últimas HISTORY_MAX velas con clusters)
-    # ---------------------------------------------------------------
-    def _save_history(self):
-        try:
-            payload = {
-                "symbol": self.cfg.symbol,
-                "interval": self.cfg.interval,
-                "candles": list(self.candles)[-HISTORY_MAX:],
-            }
-            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-                json.dump(payload, f, ensure_ascii=False)
-        except Exception as e:
-            log.warning("historial: no se pudo guardar (%s)", e)
-
-    def _load_history(self):
-        """Carga el historial persistido si coincide con símbolo e intervalo."""
-        try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if (isinstance(data, dict)
-                    and data.get("symbol") == self.cfg.symbol
-                    and data.get("interval") == self.cfg.interval):
-                return [c for c in data.get("candles", []) if isinstance(c, dict)]
-        except Exception:
-            pass
-        return []
 
     def seed_historical(self, klines, recent_trades=None):
         cfg = self.cfg
-        # historial persistido de la sesión anterior (con clusters): precargarlo
-        # para que /api/footprint-history devuelva datos desde el arranque.
-        persisted = self._load_history()
-        persisted_by_time = {c["time"]: c for c in persisted}
         for c in klines:
             t_key = int(c["ts"] // 1000)
-            if t_key in persisted_by_time:
-                continue   # ya la tenemos del historial persistido (con clusters)
             cache_key = f"{cfg.symbol}|{cfg.interval}|{t_key}"
             saved = FOOTPRINT_CACHE.get(cache_key)
             if saved is not None:
@@ -613,12 +569,6 @@ class AbsorptionEngine:
                     "clusters": [],
                 }
             self.candles.append(candle)
-        # añadir el historial persistido (son las velas más recientes, con clusters)
-        for c in persisted:
-            self.candles.append(c)
-        # orden cronológico estricto (el persistido puede intercalarse con el seed)
-        if len(self.candles) > 1:
-            self.candles = deque(sorted(self.candles, key=lambda x: x["time"]), maxlen=self.candles.maxlen)
         # 2) bootstrap: reconstruir el footprint de la vela reciente con ticks REALES
         #    de Bybit REST (recent-trade) antes de que llegue el flujo del WebSocket
         if recent_trades:
