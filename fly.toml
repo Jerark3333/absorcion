@@ -1,0 +1,21 @@
+# Configuración de despliegue en Fly.io — Mapa de Absorción (Python/FastAPI)
+# El WebSocket con Bybit debe mantenerse activo 24/7 => máquina siempre encendida.
+app = "absorcion"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8899"
+
+[http_service]
+  internal_port = 8899
+  force_https = true
+  auto_stop_machines = false   # 24/7: no detener la máquina por inactividad
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

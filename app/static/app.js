@@ -1853,6 +1853,13 @@
       const ti = $("tf-tick"); if (ti) ti.value = String(userConfig.ticks);
       updateHeader();
     } catch (_) {}
+    // Historial del footprint (últimas 100 velas con clusters): cargar al inicio
+    // para pintar el gráfico inmediatamente con datos 24/7 del backend.
+    try {
+      const r = await fetch("/api/footprint-history");
+      const h = await r.json();
+      if (h && h.candles && h.candles.length) loadCandles(h.candles);
+    } catch (_) {}
     // re-acoplar indicadores activos (volumen) desde el arranque
     if (activeIndicators.volume) addVolumeIndicator();
     connect();

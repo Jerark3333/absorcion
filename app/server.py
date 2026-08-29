@@ -227,6 +227,16 @@ async def snapshot():
     return hub.snapshot()
 
 
+@app.get("/api/footprint-history")
+async def footprint_history(limit: int = 100):
+    """Historial del footprint: las últimas N velas (por defecto 100) con sus
+    clusters Bid/Ask/Delta consolidados (buffer local 24/7 del WebSocket)."""
+    if not hub.engine:
+        return {"candles": []}
+    candles = list(hub.engine.candles)
+    return {"candles": candles[-max(1, min(limit, 500)):]}
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
