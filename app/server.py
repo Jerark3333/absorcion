@@ -270,8 +270,13 @@ async def footprint_history(limit: int = 100):
         return {"candles": []}
     candles = list(hub.engine.candles)
     lc = hub.engine.live_candle()
-    if lc and (not candles or candles[-1]["time"] != lc["time"]):
-        candles.append(lc)   # vela en formación (con footprint real) al final
+    if lc:
+        # la vela en formación ya está en el seed (klines OHLCV, sin ticks) con el
+        # mismo time; SE REEMPLAZA por la vela viva que SÍ tiene el footprint real.
+        if candles and candles[-1]["time"] == lc["time"]:
+            candles[-1] = lc
+        else:
+            candles.append(lc)
     return {"candles": candles[-max(1, min(limit, 500)):]}
 
 
