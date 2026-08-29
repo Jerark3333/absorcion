@@ -260,10 +260,18 @@ async def snapshot():
 @app.get("/api/footprint-history")
 async def footprint_history(limit: int = 100):
     """Historial del footprint: las últimas N velas (por defecto 100) con sus
-    clusters Bid/Ask/Delta consolidados (buffer local 24/7 del WebSocket)."""
+    clusters Bid/Ask/Delta consolidados (buffer local 24/7 del WebSocket).
+
+    Las velas cerradas del seed histórico vienen de klines OHLCV (sin ticks) y
+    solo ganan clusters al cerrar en vivo; la vela EN FORMACIÓN sí tiene su
+    footprint REAL, así que se añade al final para que el historial muestre datos
+    desde el arranque (Bybit no expone trades públicos históricos)."""
     if not hub.engine:
         return {"candles": []}
     candles = list(hub.engine.candles)
+    lc = hub.engine.live_candle()
+    if lc and (not candles or candles[-1]["time"] != lc["time"]):
+        candles.append(lc)   # vela en formación (con footprint real) al final
     return {"candles": candles[-max(1, min(limit, 500)):]}
 
 
