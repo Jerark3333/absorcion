@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Absorción — BYBIT</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <header id="toolbar">
+      <div class="brand" title="Mapa de Absorción">
+        <span class="logo">▣</span>
+        <span class="brand-name">Absorción</span>
+      </div>
+
+      <div class="symbol-wrap">
+        <div class="symbol-box" id="symbol-box">
+          <input id="symbol-input" autocomplete="off" spellcheck="false" value="BTCUSDT" />
+          <span class="chev">▾</span>
+        </div>
+        <div class="dropdown" id="symbol-dropdown"></div>
+      </div>
+
+      <!-- Botón desplegable de temporalidad (estilo Quantower) -->
+      <div class="tf-wrap">
+        <button id="tf-btn" class="tf-btn" title="Cambiar temporalidad">
+          <span id="tf-label">Time - 5m</span><span class="tf-chev">˅</span>
+        </button>
+        <div id="tf-popover" class="tf-popover hidden">
+          <div class="tf-field">
+            <label>Tiempo</label>
+            <select id="tf-type"><option value="time">Tiempo</option></select>
+          </div>
+          <div class="tf-group">
+            <label>Período</label>
+            <div class="tf-row">
+              <input id="tf-value" type="number" min="1" step="1" value="5" />
+              <select id="tf-unit">
+                <option value="minute">Minuto</option>
+                <option value="hour">Hora</option>
+                <option value="day">Día</option>
+              </select>
+            </div>
+          </div>
+          <div class="tf-group">
+            <label>Tipo de historial</label>
+            <select id="tf-histtype"><option value="last">Último</option><option value="custom">Personalizado</option></select>
+          </div>
+          <div class="tf-group">
+            <label>Rango</label>
+            <select id="tf-range">
+              <option value="3">3 días</option>
+              <option value="7">7 días</option>
+              <option value="30">30 días</option>
+            </select>
+          </div>
+          <div class="tf-group">
+            <label>Garrapata (Tick Size)</label>
+            <div class="tf-row">
+              <input id="tf-tick" type="number" min="1" step="1" value="5" list="tick-options" />
+              <datalist id="tick-options">
+                <option value="1"></option>
+                <option value="2"></option>
+                <option value="5"></option>
+                <option value="10"></option>
+                <option value="50"></option>
+                <option value="100"></option>
+              </datalist>
+              <span class="tf-unit-label">Ticks</span>
+            </div>
+          </div>
+          <div class="tf-actions">
+            <button id="tf-apply" class="tf-btn apply">APLICAR</button>
+            <button id="tf-cancel" class="tf-btn cancel">CANCELAR</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><label>Precio</label><b id="price">—</b></div>
+        <div class="stat"><label>Bid / Ask</label><b id="bidask">— / —</b></div>
+        <div class="stat"><label>VolRel mín</label><b id="kval">2.0×</b></div>
+      </div>
+
+      <div id="status" class="status connecting">Conectando…</div>
+
+      <!-- Configuración visual -->
+      <div class="settings-wrap">
+        <button id="settings-btn" class="settings-btn" title="Configuración visual">⚙</button>
+        <div id="settings-popover" class="settings-popover hidden">
+          <h3>Visualización</h3>
+          <label class="set-row"><input type="checkbox" id="cfg-poc" /> Mostrar POC (amarillo)</label>
+          <label class="set-row"><input type="checkbox" id="cfg-delta" /> Histograma de Delta</label>
+          <label class="set-row"><input type="checkbox" id="cfg-numbers" /> Números (Bid / Ask)</label>
+          <label class="set-row"><input type="checkbox" id="cfg-priceline" /> Línea de precio actual</label>
+          <label class="set-row"><input type="checkbox" id="cfg-timer" /> Temporizador de vela</label>
+          <h3>Colores</h3>
+          <div class="set-row"><span>Delta positivo</span><input type="color" id="cfg-coldpos" value="#22c98a" /></div>
+          <div class="set-row"><span>Delta negativo</span><input type="color" id="cfg-coldneg" value="#ef5350" /></div>
+          <div class="set-row"><span>Highlight POC</span><input type="color" id="cfg-colpoc" value="#ffd600" /></div>
+          <div class="set-row"><span>Texto Bid (venta)</span><input type="color" id="cfg-colbid" value="#ffd600" /></div>
+          <div class="set-row"><span>Texto Ask (compra)</span><input type="color" id="cfg-colask" value="#00e676" /></div>
+          <h3>Tamaño y tipografía</h3>
+          <div class="set-row"><span>Tamaño de fuente</span><input type="range" id="cfg-font" min="9" max="14" step="1" value="10" /><b class="set-val" id="cfg-font-v">10</b></div>
+          <div class="set-row"><span>Opacidad del Delta</span><input type="range" id="cfg-opacity" min="20" max="100" step="5" value="100" /><b class="set-val" id="cfg-opacity-v">100%</b></div>
+          <div class="set-row"><span>Ancho del Delta</span><input type="range" id="cfg-width" min="40" max="150" step="10" value="100" /><b class="set-val" id="cfg-width-v">100%</b></div>
+        </div>
+      </div>
+
+      <!-- Menú Indicadores (estilo TradingView) -->
+      <div class="ind-wrap">
+        <button id="ind-btn" class="ind-btn" title="Indicadores">
+          <svg class="ind-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M2 13 L5.5 9.2 L8.5 11.2 L14 4.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="2" y="12" width="2.2" height="2.6" fill="currentColor" stroke="none"/>
+            <rect x="6.4" y="12" width="2.2" height="2.6" fill="currentColor" stroke="none"/>
+            <rect x="10.8" y="12" width="2.2" height="2.6" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>Indicadores</span>
+          <span class="ind-chev">▾</span>
+        </button>
+        <div id="ind-popover" class="ind-popover hidden">
+          <input id="ind-search" type="text" placeholder="Buscar indicador..." autocomplete="off" spellcheck="false" />
+          <ul id="ind-list" class="ind-list">
+            <!-- los ítems se generan desde availableIndicators (ver app.js) -->
+          </ul>
+          <div id="ind-empty" class="ind-empty hidden">Sin resultados</div>
+        </div>
+      </div>
+    </header>
+
+    <div id="main">
+      <aside id="left-tools">
+        <button class="tool" data-tool="cursor" title="Cursor"><span>✛</span></button>
+        <button class="tool" data-tool="trend" title="Línea de tendencia"><span>╱</span></button>
+        <button class="tool" data-tool="hline" title="Línea horizontal"><span>―</span></button>
+        <button class="tool" data-tool="vline" title="Línea vertical"><span>│</span></button>
+        <button class="tool" data-tool="rect" title="Rectángulo"><span>▭</span></button>
+        <button class="tool" data-tool="text" title="Texto"><span>T</span></button>
+        <button class="tool" data-tool="fib" title="Retroceso Fibonacci"><span>F</span></button>
+        <button class="tool" data-tool="measure" title="Medir"><span>⤢</span></button>
+        <div class="tool-sep"></div>
+        <button class="tool danger" data-tool="clear" title="Borrar dibujos"><span>🗑</span></button>
+      </aside>
+
+      <div id="chart-col">
+        <section id="chart-wrap">
+          <canvas id="heatmap"></canvas>
+          <div id="chart"></div>
+          <canvas id="overlay"></canvas>
+          <div id="tooltip" class="tooltip hidden"></div>
+          <div id="crosshair-label" class="cross-label hidden"></div>
+          <div id="price-timer" class="price-timer up hidden"><div class="p">—</div><div class="t">00:00</div></div>
+          <div id="vol-legend" class="vol-legend hidden">
+            <span class="vl-label">Vol <b id="vl-value">—</b></span>
+            <button class="vl-btn" id="vl-eye" title="Ocultar indicador">👁</button>
+            <button class="vl-btn" id="vl-gear" title="Configuración">⚙</button>
+            <button class="vl-btn" id="vl-x" title="Eliminar indicador">✕</button>
+          </div>
+        </section>
+
+        <!-- Subplot Delta (panel independiente debajo del gráfico) -->
+        <div id="delta-host" class="delta-host hidden">
+          <div id="delta-hud" class="delta-hud">
+            <span id="delta-title">Delta (50)</span>
+            <span id="delta-net">Net: +0.00</span>
+            <span class="delta-spacer"></span>
+            <button id="delta-toggle-values" class="delta-btn" title="Mostrar / ocultar valores">#</button>
+            <button id="delta-toggle-mode" class="delta-btn" title="Modo: Barras / Acumulado">Barras</button>
+          </div>
+          <canvas id="delta-panel"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <footer id="statusbar">
+      <span id="sb-market">BTCUSDT · Perpetuo · 5m</span>
+      <span>Footprint en tiempo real · acércate para ver Bid / Ask / Delta por cluster.</span>
+    </footer>
+
+  </div>
+
+  <script src="/static/lightweight-charts.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
